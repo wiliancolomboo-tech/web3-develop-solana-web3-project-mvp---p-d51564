@@ -1,0 +1,42 @@
+flowchart TD
+    subgraph Campus Ecosystem
+        Sponsor["Sponsor / Grant Committee (KUBG/Alumni)"]
+        Student["Student Builder / Team Lead"]
+        Reviewer["Faculty / Peer Reviewer"]
+    end
+
+    subgraph Solana Runtime [Solana Blockchain - Anchor Program]
+        Program["CampusPulse Core Engine (campus_pulse.so)"]
+        GrantPDA["Grant Escrow PDA Vault (seeds=[b'grant', id])"]
+        MilestoneState["Milestone State Register"]
+        VaultSOL["PDA Lamport Reserve"]
+    end
+
+    subgraph Enterprise Off-Chain Integration
+        RPC["Solana Helius / Triton RPC WebSocket"]
+        Relayer["CampusPulse Sentinel Service (Node.js/TS Worker)"]
+        ResendAPI["Resend Enterprise Email Gateway"]
+        Webhook["Discord / Slack Campus Syndicate Hub"]
+    end
+
+    %% Lifecycle Flows
+    Sponsor -->|"1. initialize_grant(budget, milestones)"| Program
+    Program -->|"Create Escrow PDA & Deposit SOL"| GrantPDA
+    GrantPDA -.-> VaultSOL
+
+    Student -->|"2. submit_milestone(proof_uri)"| Program
+    Program -->|"Update State: Submitted"| MilestoneState
+
+    Reviewer -->|"3. review_milestone(Approved)"| Program
+    Program -->|"Transition State: Approved"| MilestoneState
+
+    Program -->|"4. execute_payout() [Transfer Lamports]"| Student
+    VaultSOL -->|"Instant Payout Transfer"| Student
+
+    %% Event Stream & Telemetry
+    Program -->>|"Emit MilestoneCompleted Event"| RPC
+    RPC -->>|"WebSocket Subscription: onLogs"| Relayer
+    Relayer -->|"Dispatch Signed PDF / Receipt"| ResendAPI
+    Relayer -->|"Post Proof to Campus Channel"| Webhook
+    ResendAPI -->|"Deliver Cryptographic Receipt"| Sponsor
+    Webhook -->|"Broadcast Live Grant Win"| Campus Ecosystem
