@@ -1,42 +1,40 @@
 flowchart TD
     subgraph Campus Ecosystem
-        Sponsor["Sponsor / Grant Committee (KUBG/Alumni)"]
-        Student["Student Builder / Team Lead"]
-        Reviewer["Faculty / Peer Reviewer"]
+        Sponsor[Sponsor / University Admin]
+        Student[Student Builder Team]
+        Committee[Faculty / Peer Review Committee]
     end
 
-    subgraph Solana Runtime [Solana Blockchain - Anchor Program]
-        Program["CampusPulse Core Engine (campus_pulse.so)"]
-        GrantPDA["Grant Escrow PDA Vault (seeds=[b'grant', id])"]
-        MilestoneState["Milestone State Register"]
-        VaultSOL["PDA Lamport Reserve"]
+    subgraph Solana Program Runtime: univibe_protocol
+        EscrowPDA[Grant Escrow PDA Vault]
+        StatePDA[Grant State & Milestone PDA]
+        ReviewLog[Review Record PDA]
     end
 
-    subgraph Enterprise Off-Chain Integration
-        RPC["Solana Helius / Triton RPC WebSocket"]
-        Relayer["CampusPulse Sentinel Service (Node.js/TS Worker)"]
-        ResendAPI["Resend Enterprise Email Gateway"]
-        Webhook["Discord / Slack Campus Syndicate Hub"]
+    subgraph Off-Chain Agent & Enterprise Services
+        Indexer[UniVibe Automation Worker / Indexer]
+        SolanaRPC[Solana JSON-RPC Engine]
+        DiscordWebhook[Campus Discord / Slack Alerts]
+        ResendAPI[Resend Transactional Email Engine]
     end
 
-    %% Lifecycle Flows
-    Sponsor -->|"1. initialize_grant(budget, milestones)"| Program
-    Program -->|"Create Escrow PDA & Deposit SOL"| GrantPDA
-    GrantPDA -.-> VaultSOL
+    %% Grant Setup
+    Sponsor -->|1. Initialize Grant & Deposit SOL| StatePDA
+    Sponsor -->|Deposit Funds| EscrowPDA
 
-    Student -->|"2. submit_milestone(proof_uri)"| Program
-    Program -->|"Update State: Submitted"| MilestoneState
+    %% Deliverable Submission
+    Student -->|2. Submit Deliverable URI & Checksum| StatePDA
 
-    Reviewer -->|"3. review_milestone(Approved)"| Program
-    Program -->|"Transition State: Approved"| MilestoneState
+    %% Review Process
+    Committee -->|3. Validate Code & Approve Milestone| ReviewLog
+    ReviewLog -->|Threshold Reached| StatePDA
 
-    Program -->|"4. execute_payout() [Transfer Lamports]"| Student
-    VaultSOL -->|"Instant Payout Transfer"| Student
+    %% Payout Execution
+    StatePDA -->|4. Trigger Disburse Funds| EscrowPDA
+    EscrowPDA -->|5. Instant Transfer Lamports| Student
 
-    %% Event Stream & Telemetry
-    Program -->>|"Emit MilestoneCompleted Event"| RPC
-    RPC -->>|"WebSocket Subscription: onLogs"| Relayer
-    Relayer -->|"Dispatch Signed PDF / Receipt"| ResendAPI
-    Relayer -->|"Post Proof to Campus Channel"| Webhook
-    ResendAPI -->|"Deliver Cryptographic Receipt"| Sponsor
-    Webhook -->|"Broadcast Live Grant Win"| Campus Ecosystem
+    %% Event Ingestion & Webhooks
+    StatePDA -.->|Emit MilestoneDisbursedEvent| SolanaRPC
+    SolanaRPC -.->|WebSocket Log Subscription| Indexer
+    Indexer -->|6. Trigger Dispatch| DiscordWebhook
+    Indexer -->|7. Send Formal Audit Receipt| ResendAPI

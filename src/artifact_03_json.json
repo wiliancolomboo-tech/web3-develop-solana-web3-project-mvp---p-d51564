@@ -1,0 +1,23 @@
+{
+  "name": "univibe-client-orchestrator",
+  "version": "1.0.0",
+  "description": "Enterprise event listener and automated notifier for UniVibe Protocol",
+  "main": "dist/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "cli": "ts-node src/cli.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.95.8",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "resend": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

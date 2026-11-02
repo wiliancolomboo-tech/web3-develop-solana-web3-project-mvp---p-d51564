@@ -1,0 +1,4 @@
+### 6.2 Dockerized Infrastructure
+Save the following files to run the UniVibe off-chain orchestrator daemon in a turnkey, containerized fashion.
+
+#### `Dockerfile`

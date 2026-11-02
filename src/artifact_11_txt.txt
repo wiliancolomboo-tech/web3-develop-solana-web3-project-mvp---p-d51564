@@ -1,0 +1,8 @@
+UniVibe turns university endowments into decentralized innovation engines. 
+
+Tested. Dockerized. Ready for mainnet deployment across collegiate Web3 ecosystems today.
+
+Check out our open-source repo & live demo:
+🔗 https://github.com/kubg-vibeathon/univibe-core
+
+#Solana #KUBG #UNIVibeathon #Buidl #Anchor

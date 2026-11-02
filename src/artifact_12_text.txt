@@ -1,0 +1,6 @@
+CampusVibe isn't just a hackathon prototype—it's institutional tooling for universities worldwide. From collegiate DAOs to university research grants, capital moves at the speed of code.
+
+Check out our full open-source repo & live Devnet demo: 
+👉 github.com/campusvibe/core
+
+Huge thanks to @KUBG_official for hosting the UNI Vibeathon! 🇰🇷🔥

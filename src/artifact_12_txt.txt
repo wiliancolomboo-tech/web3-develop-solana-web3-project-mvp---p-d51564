@@ -1,0 +1,7 @@
+UniVibe connects campus clubs to on-chain non-custodial milestone vaults:
+✅ Anchor-based PDA escrow holding SOL/SPL
+✅ Verifiable IPFS proof submissions by student devs
+✅ Arbiter multi-sig signoff triggers instant disbursements
+✅ Real-time integration with Slack & @Resend for faculty ops
+
+Zero paper trails. 100% verifiable proof-of-build.

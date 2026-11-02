@@ -1,0 +1,22 @@
+🧵 1/3
+Thrilled to introduce @VibePassProtocol for the Korea University Blockchain Group #KUBG UNI Vibeathon! 🎓⚡
+
+Campus grants and hackathon payouts are broken: bureaucratic multi-sigs, delayed reimbursements, and Sybil vulnerabilities. 
+
+VibePass changes this on @solana. 🚀👇
+
+🧵 2/3
+Under the hood of VibePass:
+🔐 Non-custodial PDA Escrows with deterministic time-locks
+⚡ Sub-second, fee-optimized student milestone settlements
+🤖 Automated enterprise daemon bridging on-chain Solana events directly to @resend receipts & Discord operations webhooks!
+
+No more waiting 60 days for campus prize money.
+
+🧵 3/3
+University treasuries can now spin up verifiable, anti-Sybil micro-grants in 1 click with cryptographic settlement guarantees.
+
+Built with Rust, Anchor, and enterprise webhook pipelines.
+
+Check out our full open-source repo & live Devnet demo! 🇰🇷🤝
+#Solana #KUBG #Vibeathon #Web3Korea @KUBG_official

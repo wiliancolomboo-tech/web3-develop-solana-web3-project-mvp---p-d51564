@@ -1,0 +1,6 @@
+Built for speed & institutional transparency:
+🔒 Non-custodial PDA escrow vaults on Anchor
+⚡️ 400ms programmatic tranche releases on milestone verification
+🔔 Real-time off-chain dispatch to Discord & @resend emails
+
+No middlemen. Just deterministic code fueling student builders. 🛠️

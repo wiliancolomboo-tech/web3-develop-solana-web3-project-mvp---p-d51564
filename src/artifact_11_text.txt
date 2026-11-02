@@ -1,0 +1,6 @@
+The future of collegiate Web3 builders starts at Korea University! 🇰🇷🤝
+
+Check out our production-ready codebase, live Docker runner, and full QA matrix on GitHub:
+👉 https://github.com/kubg-vibeathon/univibe-solana
+
+Let’s vibe and onboard the next 10,000 student devs to @solana! 🚀 #UNIVibeathon

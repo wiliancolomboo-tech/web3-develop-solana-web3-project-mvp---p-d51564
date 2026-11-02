@@ -1,0 +1,10 @@
+# Solana Network Configuration
+SOLANA_RPC_URL=https://api.devnet.solana.com
+PROGRAM_ID=UniV1bex4K9QWk7M8nJ2P5xRz6Y9vC8L3tW1qA0mB2cD
+ANCHOR_WALLET=~/.config/solana/id.json
+
+# Enterprise Notification Credentials
+RESEND_API_KEY=re_live_9x81723a19b87c61d520
+DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+ADMIN_NOTIFY_EMAIL=bounties@kubg.or.kr
+PORT=8080

@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  univibe-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: univibe-engine-prod
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - SOLANA_RPC_HTTP=https://api.devnet.solana.com
+      - SOLANA_RPC_WS=wss://api.devnet.solana.com
+      - PROGRAM_ID=UniVibe111111111111111111111111111111111111
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - SPONSOR_ALERT_EMAIL=${SPONSOR_ALERT_EMAIL}
+    ports:
+      - "9090:9090"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"

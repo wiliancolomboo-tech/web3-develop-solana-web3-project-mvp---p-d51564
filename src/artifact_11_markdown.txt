@@ -1,0 +1,17 @@
+🧵 1/3: 🎓 Frictionless Capital for Student Builders! 
+Excited to unveil @VibeProof for the @KU_Blockchain KUBG UNI Vibeathon! 🚀
+
+Student hackathons and campus research grants suffer from opaque reviews & delayed payouts. 
+We fixed this by deploying an ultra-fast, zero-loss Milestone Escrow Engine on @solana. ⚡
+
+🧵 2/3: 🛠️ How it works:
+1️⃣ Sponsors lock grants into deterministic Solana PDAs
+2️⃣ Student grantees submit cryptographic milestone proofs
+3️⃣ University oracles/validators sign releases in <400ms (<$0.0005 fee)
+4️⃣ Real-time notifications stream to Discord, Slack & Resend email via our event relayer!
+
+🧵 3/3: 🏆 Fully open-source, turnkey Dockerized, and production-tested on Devnet!
+Built with @AnchorLang & engineered for university DAOs worldwide.
+
+Inspect the code & try the demo: https://github.com/vibeproof/protocol
+Special thanks to @KU_Blockchain for championing student innovation! #Solana #KUBG #Vibeathon

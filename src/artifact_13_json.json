@@ -1,0 +1,7 @@
+{
+  "status": "healthy",
+  "solana_rpc": "https://api.devnet.solana.com",
+  "program_id": "UniV1bE111111111111111111111111111111111111",
+  "relayer_active": true,
+  "timestamp": "2025-05-15T12:00:00.000Z"
+}

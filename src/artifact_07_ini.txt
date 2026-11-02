@@ -1,0 +1,8 @@
+NODE_ENV=production
+PORT=8080
+SOLANA_RPC_ENDPOINT=https://api.devnet.solana.com
+SOLANA_WS_ENDPOINT=wss://api.devnet.solana.com
+PROGRAM_ID=UniVibe1111111111111111111111111111111111111
+DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+RESEND_API_KEY=re_123456789_abcdefghijklmnop
+AUDIT_EMAIL_RECIPIENT=treasury-audits@kubg-vibes.edu

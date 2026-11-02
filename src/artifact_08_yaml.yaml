@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  univibe-relayer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: univibe-automation-relayer
+    restart: always
+    environment:
+      - PORT=8080
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_WS_URL=wss://api.devnet.solana.com
+      - PROGRAM_ID=UniVibe1111111111111111111111111111111111111
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - CAMPUS_ADMIN_EMAIL=kubg.hackathon@korea.ac.kr
+    ports:
+      - "8080:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

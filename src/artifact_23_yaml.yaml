@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  univibe-relayer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: univibe_core_relayer
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_WS_URL=wss://api.devnet.solana.com
+      - UNIVIBE_PROGRAM_ID=V1beGZ4sJ52z2x5pW5Qh7Q9zP4bN4L8Kq9ZJm8q2vibe
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SENDER_EMAIL=grants@univibe.edu
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    ports:
+      - "8080:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"

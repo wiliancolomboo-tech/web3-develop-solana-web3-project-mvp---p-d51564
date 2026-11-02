@@ -1,0 +1,5 @@
+---
+
+# 5. Comprehensive Test Suite & QA Matrix
+
+Save this complete integration test suite to `tests/univibe.spec.ts`. It executes the full lifecycle of campaign creation, milestone submission, multi-reviewer voting quorum, and automated fund releases.

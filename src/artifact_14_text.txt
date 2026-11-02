@@ -1,0 +1,8 @@
+3/4 🚀 Production ready from Day 1:
+📦 100% test-covered Anchor smart contracts
+🐳 1-click Docker deployment
+🔗 Live telemetry daemon
+
+Check out the full repo, run the integration tests, and vibe with us: github.com/univibe/univibe-solana
+
+Cc @SolanaUniv @KUBG_official 🔥

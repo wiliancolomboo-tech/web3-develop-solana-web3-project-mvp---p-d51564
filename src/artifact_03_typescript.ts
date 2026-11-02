@@ -1,207 +1,160 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program, Idl } from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
 import { Connection, PublicKey, Keypair } from "@solana/web3.js";
 import axios from "axios";
+import * as fs from "fs";
 import * as dotenv from "dotenv";
 
 dotenv.config();
 
-// Enterprise Configuration Interface
-interface AppConfig {
-  solanaRpcUrl: string;
-  solanaWsUrl: string;
-  programId: PublicKey;
-  discordWebhookUrl?: string;
-  resendApiKey?: string;
-  resendSenderEmail?: string;
-  sponsorAlertEmail?: string;
+// Program ID definition matching Rust contract
+const PROGRAM_ID = new PublicKey("V1BE4aH8bSm3mXyN2r5q8V1BE4aH8bSm3mXyN2r5q8AA");
+
+interface ResendPayload {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
 }
 
-const config: AppConfig = {
-  solanaRpcUrl: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
-  solanaWsUrl: process.env.SOLANA_WS_URL || "wss://api.devnet.solana.com",
-  programId: new PublicKey(process.env.PROGRAM_ID || "CmpP1seVibe111111111111111111111111111111111"),
-  discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
-  resendApiKey: process.env.RESEND_API_KEY,
-  resendSenderEmail: process.env.RESEND_SENDER_EMAIL || "grants@campuspulse.org",
-  sponsorAlertEmail: process.env.SPONSOR_ALERT_EMAIL || "committee@kubg.io",
-};
+export class UniVibeIntegrationEngine {
+  private connection: Connection;
+  private program: Program<any>;
+  private discordWebhookUrl: string;
+  private resendApiKey: string;
+  private notificationEmail: string;
 
-/**
- * Enterprise Dispatcher: Sends Discord Embed and Email notifications via Resend API
- */
-class NotificationDispatcher {
-  public static async dispatchDiscordAlert(title: string, fields: { name: string; value: string; inline?: boolean }[]) {
-    if (!config.discordWebhookUrl) {
-      console.log(`[DISCORD_SKIP] Webhook URL not configured. Title: ${title}`);
+  constructor() {
+    const rpcUrl = process.env.SOLANA_RPC_URL || "http://127.0.0.1:8899";
+    this.connection = new Connection(rpcUrl, "confirmed");
+
+    const keypairPath = process.env.WALLET_PATH || `${process.env.HOME}/.config/solana/id.json`;
+    const rawKey = JSON.parse(fs.readFileSync(keypairPath, "utf-8"));
+    const keypair = Keypair.fromSecretKey(Uint8Array.from(rawKey));
+    const wallet = new anchor.Wallet(keypair);
+
+    const provider = new anchor.AnchorProvider(this.connection, wallet, {
+      commitment: "confirmed",
+    });
+    anchor.setProvider(provider);
+
+    // Load IDL (assuming target/idl/univibe_protocol.json exists)
+    const idl = JSON.parse(fs.readFileSync("./target/idl/univibe_protocol.json", "utf8"));
+    this.program = new Program(idl, provider);
+
+    this.discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "";
+    this.resendApiKey = process.env.RESEND_API_KEY || "";
+    this.notificationEmail = process.env.CAMPUS_ADMIN_EMAIL || "grants@korea.ac.kr";
+  }
+
+  public async startEventListener(): Promise<void> {
+    console.log("⚡ [UniVibe Daemon] Connecting to Solana Event Bus on Program:", PROGRAM_ID.toBase58());
+
+    this.program.addEventListener("GrantCreatedEvent", async (event: any, slot: number) => {
+      console.log(`\n🎉 [Event: GrantCreated] Slot: ${slot} | Grant: ${event.grant.toBase58()}`);
+      await this.dispatchDiscordNotification(
+        "🚀 New University Grant Initialized",
+        `**Grant Pubkey:** \`${event.grant.toBase58()}\`\n` +
+        `**Sponsor:** \`${event.sponsor.toBase58()}\`\n` +
+        `**Recipient:** \`${event.recipient.toBase58()}\`\n` +
+        `**Total Allocation:** ${event.totalAmount.toNumber() / 1e9} SOL\n` +
+        `**Milestones Planned:** ${event.totalMilestones}`
+      );
+    });
+
+    this.program.addEventListener("DeliverableSubmittedEvent", async (event: any, slot: number) => {
+      console.log(`\n📦 [Event: DeliverableSubmitted] Milestone: ${event.milestoneIndex}`);
+      await this.dispatchDiscordNotification(
+        "📝 Milestone Deliverable Submitted for Review",
+        `**Grant:** \`${event.grant.toBase58()}\`\n` +
+        `**Milestone Index:** #${event.milestoneIndex}\n` +
+        `**Deliverable IPFS CID:** [${event.deliverableCid}](https://ipfs.io/ipfs/${event.deliverableCid})`
+      );
+    });
+
+    this.program.addEventListener("MilestoneDisbursedEvent", async (event: any, slot: number) => {
+      console.log(`\n💰 [Event: MilestoneDisbursed] Milestone #${event.milestoneIndex} released!`);
+      const solAmount = event.amount.toNumber() / 1e9;
+
+      await this.dispatchDiscordNotification(
+        "💸 Milestone Payout Released!",
+        `**Recipient:** \`${event.recipient.toBase58()}\`\n` +
+        `**Milestone #${event.milestoneIndex} Paid:** ${solAmount} SOL\n` +
+        `**Grant Finalized:** ${event.isGrantCompleted ? "YES ✅" : "NO (Pending next phase) ⏳"}`
+      );
+
+      await this.sendFormalEmailReceipt(
+        this.notificationEmail,
+        `[KUBG UniVibe] Milestone #${event.milestoneIndex} Disbursement Notice`,
+        `<h2>Milestone Disbursement Confirmation</h2>
+         <p>The milestone payment has cleared on-chain via the UniVibe protocol.</p>
+         <ul>
+           <li><strong>Grant PDA:</strong> ${event.grant.toBase58()}</li>
+           <li><strong>Amount Disbursed:</strong> ${solAmount} SOL</li>
+           <li><strong>Recipient:</strong> ${event.recipient.toBase58()}</li>
+           <li><strong>Grant Complete:</strong> ${event.isGrantCompleted}</li>
+         </ul>
+         <p>Inspect state directly on Solana Explorer.</p>`
+      );
+    });
+
+    console.log("✅ [UniVibe Daemon] Active and listening for on-chain events...");
+  }
+
+  private async dispatchDiscordNotification(title: string, description: string): Promise<void> {
+    if (!this.discordWebhookUrl) {
+      console.warn("⚠️ [Webhook] Discord URL not set. Skipping push.");
       return;
     }
-
     try {
-      await axios.post(config.discordWebhookUrl, {
-        username: "CampusPulse Protocol Sentinel",
-        avatar_url: "https://solana.com/src/img/branding/solanaLogoMark.png",
+      await axios.post(this.discordWebhookUrl, {
         embeds: [
           {
-            title: `⚡ ${title}`,
-            color: 0x14f195, // Solana Emerald Green
-            fields,
+            title,
+            description,
+            color: 0x9945ff, // Solana Purple
+            footer: { text: "UniVibe Protocol Engine • KUBG Vibeathon" },
             timestamp: new Date().toISOString(),
-            footer: {
-              text: "Solana KUBG UNI Vibeathon Engine • Verifiable On-Chain State",
-            },
           },
         ],
       });
-      console.log(`[DISCORD_SUCCESS] Dispatched alert: "${title}"`);
+      console.log("📨 [Webhook] Discord embed delivered.");
     } catch (err: any) {
-      console.error(`[DISCORD_ERROR] Failed to post webhook: ${err.message}`);
+      console.error("❌ [Webhook Error]:", err.message);
     }
   }
 
-  public static async dispatchEmailReceipt(recipientEmail: string, subject: string, htmlContent: string) {
-    if (!config.resendApiKey) {
-      console.log(`[RESEND_SKIP] API key not configured. Subject: ${subject}`);
+  private async sendFormalEmailReceipt(to: string, subject: string, html: string): Promise<void> {
+    if (!this.resendApiKey) {
+      console.warn("⚠️ [Resend API] Key not set. Skipping email dispatch.");
       return;
     }
-
     try {
-      const response = await axios.post(
-        "https://api.resend.com/emails",
-        {
-          from: `CampusPulse Grants <${config.resendSenderEmail}>`,
-          to: [recipientEmail],
-          subject,
-          html: htmlContent,
+      const payload: ResendPayload = {
+        from: "UniVibe Grants <grants@univibe.network>",
+        to: [to],
+        subject,
+        html,
+      };
+
+      await axios.post("https://api.resend.com/emails", payload, {
+        headers: {
+          Authorization: `Bearer ${this.resendApiKey}`,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${config.resendApiKey}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      console.log(`[RESEND_SUCCESS] Email dispatched (ID: ${response.data.id}) to ${recipientEmail}`);
+      });
+      console.log(`📧 [Resend] Dispatched audit email to ${to}`);
     } catch (err: any) {
-      console.error(`[RESEND_ERROR] Email dispatch failed: ${err.response?.data?.message || err.message}`);
+      console.error("❌ [Resend Error]:", err.response?.data || err.message);
     }
   }
 }
 
-/**
- * CampusPulse Sentinel: Real-time event subscription daemon
- */
-export class CampusPulseSentinel {
-  private connection: Connection;
-  private program: Program;
-
-  constructor(idl: Idl, keypair: Keypair) {
-    this.connection = new Connection(config.solanaRpcUrl, {
-      wsEndpoint: config.solanaWsUrl,
-      commitment: "confirmed",
-    });
-
-    const wallet = new anchor.Wallet(keypair);
-    const provider = new anchor.AnchorProvider(this.connection, wallet, { commitment: "confirmed" });
-    this.program = new Program(idl, config.programId, provider);
-  }
-
-  public async startListener(): Promise<void> {
-    console.log("==========================================================");
-    console.log("   CAMPUSPULSE SENTINEL DAEMON ONLINE [Solana Ecosystem]  ");
-    console.log(`   Program ID: ${config.programId.toBase58()}`);
-    console.log(`   RPC Endpoint: ${config.solanaRpcUrl}`);
-    console.log("==========================================================");
-
-    // Subscribe to MilestoneDisbursed Event
-    this.program.addEventListener("MilestoneDisbursed", async (event: any, slot: number, signature: string) => {
-      const grantId = event.grantId.toString();
-      const milestoneIndex = event.milestoneIndex;
-      const lamports = event.amount.toNumber();
-      const solAmount = (lamports / 1e9).toFixed(4);
-      const recipient = event.recipient.toBase58();
-
-      console.log(`\n🎉 [EVENT DETECTED] MilestoneDisbursed: Grant #${grantId}, Milestone ${milestoneIndex}, Amount: ${solAmount} SOL`);
-
-      // 1. Post to Campus Discord / Slack Channel
-      await NotificationDispatcher.dispatchDiscordAlert(`Grant Milestone Capital Disbursed!`, [
-        { name: "Grant ID", value: `#${grantId}`, inline: true },
-        { name: "Milestone Index", value: `#${milestoneIndex + 1}`, inline: true },
-        { name: "Amount Disbursed", value: `${solAmount} SOL`, inline: true },
-        { name: "Recipient Address", value: `\`${recipient}\``, inline: false },
-        { name: "Solana Explorer Link", value: `[View Transaction](https://explorer.solana.com/tx/${signature}?cluster=devnet)`, inline: false },
-      ]);
-
-      // 2. Dispatch Enterprise Email Receipt
-      const emailBody = `
-        <div style="font-family: Arial, sans-serif; background: #0b0e14; color: #f3f4f6; padding: 24px; border-radius: 8px;">
-          <h2 style="color: #14f195;">CampusPulse Milestone Disbursement Receipt</h2>
-          <p>This automated receipt confirms an on-chain grant disbursement execution under KUBG UNI Vibeathon.</p>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-            <tr><td style="padding: 8px; color: #9ca3af;">Grant ID:</td><td style="padding: 8px; font-weight: bold;">#${grantId}</td></tr>
-            <tr><td style="padding: 8px; color: #9ca3af;">Milestone:</td><td style="padding: 8px; font-weight: bold;">Milestone #${milestoneIndex + 1}</td></tr>
-            <tr><td style="padding: 8px; color: #9ca3af;">Disbursed Amount:</td><td style="padding: 8px; font-weight: bold; color: #14f195;">${solAmount} SOL</td></tr>
-            <tr><td style="padding: 8px; color: #9ca3af;">Recipient:</td><td style="padding: 8px; font-family: monospace;">${recipient}</td></tr>
-            <tr><td style="padding: 8px; color: #9ca3af;">Slot Finality:</td><td style="padding: 8px;">${slot}</td></tr>
-          </table>
-          <p style="margin-top: 24px;">
-            <a href="https://explorer.solana.com/tx/${signature}?cluster=devnet" style="background: #14f195; color: #000; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 4px;">Inspect On Solana Explorer</a>
-          </p>
-        </div>
-      `;
-
-      if (config.sponsorAlertEmail) {
-        await NotificationDispatcher.dispatchEmailReceipt(
-          config.sponsorAlertEmail,
-          `[Disbursement Proof] Grant #${grantId} - Milestone #${milestoneIndex + 1} Finalized`,
-          emailBody
-        );
-      }
-    });
-
-    // Subscribe to GrantCancelled Event
-    this.program.addEventListener("GrantCancelled", async (event: any, _slot: number, signature: string) => {
-      console.log(`⚠️ [EVENT DETECTED] Grant #${event.grantId} Cancelled. Clawback executed.`);
-      await NotificationDispatcher.dispatchDiscordAlert(`⚠️ Grant Escrow Clawback Executed`, [
-        { name: "Grant ID", value: `#${event.grantId.toString()}`, inline: true },
-        { name: "Refund Amount", value: `${(event.refundAmount.toNumber() / 1e9).toFixed(4)} SOL`, inline: true },
-        { name: "Tx Signature", value: `\`${signature.slice(0, 16)}...\``, inline: false },
-      ]);
-    });
-  }
-}
-
-// Standalone execution entrypoint
+// Execution Entrypoint
 if (require.main === module) {
-  const dummyIdl: any = {
-    version: "0.1.0",
-    name: "campus_pulse",
-    instructions: [],
-    events: [
-      {
-        name: "MilestoneDisbursed",
-        fields: [
-          { name: "grantId", type: "u64", index: false },
-          { name: "milestoneIndex", type: "u8", index: false },
-          { name: "amount", type: "u64", index: false },
-          { name: "recipient", type: "publicKey", index: false },
-        ],
-      },
-      {
-        name: "GrantCancelled",
-        fields: [
-          { name: "grantId", type: "u64", index: false },
-          { name: "refundAmount", type: "u64", index: false },
-          { name: "sponsor", type: "publicKey", index: false },
-        ],
-      },
-    ],
-  };
-
-  const keypair = Keypair.generate();
-  const sentinel = new CampusPulseSentinel(dummyIdl, keypair);
-  sentinel.startListener().catch((err) => {
-    console.error("Sentinel Daemon Fatal Exception:", err);
+  const daemon = new UniVibeIntegrationEngine();
+  daemon.startEventListener().catch((err) => {
+    console.error("Fatal Daemon Failure:", err);
     process.exit(1);
   });
 }

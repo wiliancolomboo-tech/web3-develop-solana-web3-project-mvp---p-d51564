@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  campusvibe-relayer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campusvibe-worker
+    restart: always
+    environment:
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_WS_URL=wss://api.devnet.solana.com
+      - CAMPUSVIBE_PROGRAM_ID=CV1beX99pZ7e7eT56cK3oXwXoT3pE8YpM2oT4U1NiB4
+      - DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+      - RESEND_API_KEY=re_123456789_enterprise_key
+      - NOTIFICATION_EMAIL_TO=sponsor-grants@kubg.io
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'process.exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

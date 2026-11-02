@@ -1,0 +1,6 @@
+SOLANA_NETWORK=devnet
+SOLANA_RPC_URL=https://api.devnet.solana.com
+SOLANA_WS_URL=wss://api.devnet.solana.com
+PROGRAM_ID=V1beG8p8S9hP379uFj3B1X8KqR9N9yQzK3aBCdefgh1
+ENTERPRISE_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+PORT=8080

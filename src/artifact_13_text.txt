@@ -1,0 +1,6 @@
+2/4 ⚡ Built natively with Anchor & Solana PDAs:
+✅ Sub-second milestone-escrow releases (<$0.0005 fee)
+✅ Deterministic non-custodial vaults with automatic refund timelocks
+✅ Real-time multi-channel telemetry (instant @resend emails & Discord alerts)
+
+Real utility for student builders & DAOs.

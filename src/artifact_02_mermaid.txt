@@ -1,0 +1,43 @@
+flowchart TD
+    subgraph Campus Actors
+        F[University Sponsor / Club Lead]
+        S[Student Contributor / Team]
+        A[KUBG Designated Arbiter]
+    end
+
+    subgraph Solana Runtime - UniVibe Core
+        PDA_CFG[(Protocol Config PDA)]
+        PDA_BTY[(Bounty Vault PDA)]
+        VAULT[(SOL Vault Account)]
+        PRG[UniVibe Anchor Program]
+    end
+
+    subgraph Off-Chain Enterprise Layer
+        RELAY[UniVibe Integration Daemon]
+        DISCORD[Discord Webhook Relay]
+        RESEND[Resend Enterprise Email API]
+        RPC[Solana Mainnet/Devnet RPC WebSocket]
+    end
+
+    %% Initiation Phase
+    F -->|1. Initialize Bounty with Target Slot / Deadline| PRG
+    PRG -->|Create PDA & Lock SOL| PDA_BTY
+    PRG -->|Deposit Escrow SOL| VAULT
+
+    %% Work Submission
+    S -->|2. Submit Milestone Proof / IPFS Hash| PRG
+    PRG -->|Transition Status: InReview| PDA_BTY
+
+    %% Real-time Monitoring & Verification
+    PDA_BTY -.->|Emit BountyEvent Logs| RPC
+    RPC -->|3. WebSocket Log Subscription| RELAY
+    RELAY -->|4. Push Instant Embed Notification| DISCORD
+    RELAY -->|5. Dispatch Official Verification Email| RESEND
+
+    %% Settlement or Dispute
+    F -->|6a. Approve Milestone| PRG
+    PRG -->|Release Escrow Funds to Contributor| S
+    PRG -->|Close Vault PDA / Reclaim Rent| F
+
+    A -.->|6b. Resolve Stalled Dispute if Expired| PRG
+    PRG -.->|Refund Escrow Funds| F

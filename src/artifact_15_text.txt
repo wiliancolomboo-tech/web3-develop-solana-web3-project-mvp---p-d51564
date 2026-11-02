@@ -1,0 +1,6 @@
+⚡️ Why UniVibe wins on @solana:
+• Non-custodial PDA Escrows with multi-stage milestone verification
+• Sub-second payout finality (~400ms) with SPL token streaming
+• Autonomous integration: Real-time Discord alerts + @resend notifications for verified university emails
+
+Auditable proofs replace manual university bureaucracy. 🛡️

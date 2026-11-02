@@ -1,0 +1,13 @@
+1/3 🎓 Introducing @UniVibe_SOL — the on-chain milestone escrow & micro-grant engine designed specifically for @KUBG_official UNI Vibeathon! 🚀
+
+Student hackathons shouldn't wait weeks for grant distributions. UniVibe enforces trustless milestone payouts on @Solana with zero counterparty risk. 🧵👇
+
+2/3 ⚡ Powered by Anchor PDAs, UniVibe locks prize pools and streams lamports directly to verified student builder wallets upon commit/milestone verification. 
+
+Integrated with @resend and Discord webhooks for instant enterprise receipts & notifications! 📨⚡
+
+3/3 🇰🇷 Live on Solana Devnet with full test suite passing, Dockerized turnkey deployment, and sub-second settlement. 
+
+Check out our submission for the KUBG UNI Vibeathon & let's supercharge student founders together! 
+Github: https://github.com/univibe-org/univibe-solana
+#Solana #KUBG #Vibeathon #BUIDL

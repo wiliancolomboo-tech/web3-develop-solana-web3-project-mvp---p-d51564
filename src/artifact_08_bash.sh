@@ -1,0 +1,1 @@
+solana balance <VAULT_PDA_ADDRESS>

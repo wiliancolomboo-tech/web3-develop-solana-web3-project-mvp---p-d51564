@@ -1,39 +1,52 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 
-declare_id!("CmpP1seVibe111111111111111111111111111111111");
+declare_id!("V1BE4aH8bSm3mXyN2r5q8V1BE4aH8bSm3mXyN2r5q8AA");
+
+pub const MAX_METADATA_LEN: usize = 128;
+pub const MAX_TITLE_LEN: usize = 64;
 
 #[program]
-pub mod campus_pulse {
+pub mod univibe_protocol {
     use super::*;
 
-    /// Initializes a new grant program with dynamic milestone tracking.
+    /// Initialize a new Grant Escrow targeting a specific recipient and milestone count.
     pub fn initialize_grant(
         ctx: Context<InitializeGrant>,
-        grant_id: u64,
         title: String,
-        total_budget: u64,
-        milestone_count: u8,
+        metadata_cid: String,
+        total_funding_amount: u64,
+        total_milestones: u8,
+        approval_threshold: u8,
+        deadline_slot: u64,
     ) -> Result<()> {
-        require!(title.len() > 0 && title.len() <= 64, PulseError::InvalidTitleLength);
-        require!(milestone_count > 0 && milestone_count <= 10, PulseError::InvalidMilestoneCount);
-        require!(total_budget > 0, PulseError::InvalidBudget);
+        require!(title.len() <= MAX_TITLE_LEN, UniVibeError::TitleTooLong);
+        require!(metadata_cid.len() <= MAX_METADATA_LEN, UniVibeError::MetadataTooLong);
+        require!(total_milestones > 0, UniVibeError::InvalidMilestoneCount);
+        require!(approval_threshold > 0, UniVibeError::InvalidApprovalThreshold);
+        require!(total_funding_amount > 0, UniVibeError::ZeroFundingAmount);
+        
+        let current_slot = Clock::get()?.slot;
+        require!(deadline_slot > current_slot, UniVibeError::InvalidDeadline);
 
-        let grant = &mut ctx.accounts.grant;
-        grant.grant_id = grant_id;
+        let grant = &mut ctx.accounts.grant_account;
         grant.sponsor = ctx.accounts.sponsor.key();
         grant.recipient = ctx.accounts.recipient.key();
-        grant.reviewer = ctx.accounts.reviewer.key();
-        grant.total_budget = total_budget;
-        grant.remaining_balance = total_budget;
-        grant.milestone_count = milestone_count;
-        grant.current_milestone = 0;
-        grant.state = GrantState::Funded;
-        grant.bump = ctx.bumps.grant;
-        grant.vault_bump = ctx.bumps.vault;
+        grant.vault = ctx.accounts.vault.key();
         grant.title = title;
+        grant.metadata_cid = metadata_cid;
+        grant.total_funding_amount = total_funding_amount;
+        grant.amount_disbursed = 0;
+        grant.total_milestones = total_milestones;
+        grant.current_milestone = 0;
+        grant.approval_threshold = approval_threshold;
+        grant.deadline_slot = deadline_slot;
+        grant.is_completed = false;
+        grant.is_canceled = false;
+        grant.bump = ctx.bumps.grant_account;
+        grant.vault_bump = ctx.bumps.vault;
 
-        // Transfer funds from sponsor to grant PDA vault
+        // Deposit total grant funding from sponsor into Escrow Vault PDA
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
             Transfer {
@@ -41,162 +54,185 @@ pub mod campus_pulse {
                 to: ctx.accounts.vault.to_account_info(),
             },
         );
-        transfer(cpi_context, total_budget)?;
+        transfer(cpi_context, total_funding_amount)?;
 
-        emit!(GrantInitialized {
-            grant_id,
-            sponsor: ctx.accounts.sponsor.key(),
-            recipient: ctx.accounts.recipient.key(),
-            total_budget,
-            milestone_count,
+        emit!(GrantCreatedEvent {
+            grant: grant.key(),
+            sponsor: grant.sponsor,
+            recipient: grant.recipient,
+            total_amount: total_funding_amount,
+            total_milestones,
         });
 
         Ok(())
     }
 
-    /// Recipient registers work deliverable for the active milestone.
-    pub fn submit_milestone(
-        ctx: Context<SubmitMilestone>,
-        grant_id: u64,
-        milestone_index: u8,
-        proof_uri: String,
+    /// Builder submits proof/deliverable URI for the current milestone.
+    pub fn submit_deliverable(
+        ctx: Context<SubmitDeliverable>,
+        deliverable_cid: String,
     ) -> Result<()> {
-        let grant = &mut ctx.accounts.grant;
-        require!(grant.state == GrantState::Funded || grant.state == GrantState::Active, PulseError::InvalidGrantState);
-        require!(milestone_index == grant.current_milestone, PulseError::MilestoneSequenceError);
-        require!(proof_uri.len() > 0 && proof_uri.len() <= 128, PulseError::InvalidProofUri);
+        require!(deliverable_cid.len() <= MAX_METADATA_LEN, UniVibeError::MetadataTooLong);
 
-        grant.state = GrantState::Submitted;
+        let grant = &mut ctx.accounts.grant_account;
+        require!(!grant.is_completed, UniVibeError::GrantAlreadyCompleted);
+        require!(!grant.is_canceled, UniVibeError::GrantIsCanceled);
+        require!(
+            grant.current_milestone < grant.total_milestones,
+            UniVibeError::AllMilestonesCompleted
+        );
 
-        emit!(MilestoneSubmitted {
-            grant_id,
-            milestone_index,
-            proof_uri,
+        let current_slot = Clock::get()?.slot;
+        require!(current_slot <= grant.deadline_slot, UniVibeError::DeadlineExceeded);
+
+        let milestone_state = &mut ctx.accounts.milestone_state;
+        milestone_state.grant = grant.key();
+        milestone_state.milestone_index = grant.current_milestone;
+        milestone_state.deliverable_cid = deliverable_cid.clone();
+        milestone_state.approvals_count = 0;
+        milestone_state.is_disbursed = false;
+        milestone_state.bump = ctx.bumps.milestone_state;
+
+        emit!(DeliverableSubmittedEvent {
+            grant: grant.key(),
+            milestone_index: grant.current_milestone,
+            deliverable_cid,
         });
 
         Ok(())
     }
 
-    /// Authorized reviewer validates or rejects the submitted milestone.
+    /// Committee members approve the current milestone.
     pub fn review_milestone(
         ctx: Context<ReviewMilestone>,
-        grant_id: u64,
-        milestone_index: u8,
         approved: bool,
     ) -> Result<()> {
-        let grant = &mut ctx.accounts.grant;
-        require!(grant.state == GrantState::Submitted, PulseError::NotUnderReview);
-        require!(milestone_index == grant.current_milestone, PulseError::MilestoneSequenceError);
+        let grant = &ctx.accounts.grant_account;
+        require!(!grant.is_completed, UniVibeError::GrantAlreadyCompleted);
+        require!(!grant.is_canceled, UniVibeError::GrantIsCanceled);
+
+        let milestone_state = &mut ctx.accounts.milestone_state;
+        require!(!milestone_state.is_disbursed, UniVibeError::MilestoneAlreadyDisbursed);
+
+        let review_record = &mut ctx.accounts.review_record;
+        review_record.grant = grant.key();
+        review_record.reviewer = ctx.accounts.reviewer.key();
+        review_record.milestone_index = grant.current_milestone;
+        review_record.approved = approved;
+        review_record.reviewed_at = Clock::get()?.unix_timestamp;
 
         if approved {
-            grant.state = GrantState::Approved;
-        } else {
-            grant.state = GrantState::Disputed;
+            milestone_state.approvals_count = milestone_state.approvals_count.checked_add(1).unwrap();
         }
 
-        emit!(MilestoneReviewed {
-            grant_id,
-            milestone_index,
-            approved,
+        emit!(MilestoneReviewedEvent {
+            grant: grant.key(),
+            milestone_index: grant.current_milestone,
             reviewer: ctx.accounts.reviewer.key(),
+            approved,
+            current_approvals: milestone_state.approvals_count,
         });
 
         Ok(())
     }
 
-    /// Disburses the pro-rata tranche to the student recipient upon approval.
-    pub fn disburse_milestone(
-        ctx: Context<DisburseMilestone>,
-        grant_id: u64,
-        milestone_index: u8,
-    ) -> Result<()> {
-        let grant = &mut ctx.accounts.grant;
-        require!(grant.state == GrantState::Approved, PulseError::MilestoneNotApproved);
-        require!(milestone_index == grant.current_milestone, PulseError::MilestoneSequenceError);
+    /// Disburse funds for an approved milestone to the recipient.
+    pub fn disburse_milestone(ctx: Context<DisburseMilestone>) -> Result<()> {
+        let grant = &mut ctx.accounts.grant_account;
+        let milestone_state = &mut ctx.accounts.milestone_state;
 
-        // Calculate tranche allocation: balanced distribution with remainder on final tranche
-        let tranche_amount = if grant.current_milestone == grant.milestone_count - 1 {
-            grant.remaining_balance
-        } else {
-            grant.total_budget.checked_div(grant.milestone_count as u64).ok_or(PulseError::MathOverflow)?
+        require!(!grant.is_completed, UniVibeError::GrantAlreadyCompleted);
+        require!(!grant.is_canceled, UniVibeError::GrantIsCanceled);
+        require!(!milestone_state.is_disbursed, UniVibeError::MilestoneAlreadyDisbursed);
+        require!(
+            milestone_state.approvals_count >= grant.approval_threshold,
+            UniVibeError::InsufficientApprovals
+        );
+
+        let per_milestone_payout = grant
+            .total_funding_amount
+            .checked_div(grant.total_milestones as u64)
+            .ok_or(UniVibeError::MathOverflow)?;
+
+        milestone_state.is_disbursed = true;
+        grant.amount_disbursed = grant.amount_disbursed.checked_add(per_milestone_payout).unwrap();
+        grant.current_milestone = grant.current_milestone.checked_add(1).unwrap();
+
+        if grant.current_milestone == grant.total_milestones {
+            grant.is_completed = true;
+        }
+
+        // Vault seeds for PDA signing
+        let grant_key = grant.key();
+        let seeds = &[
+            b"univibe_vault",
+            grant_key.as_ref(),
+            &[grant.vault_bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let transfer_instruction = Transfer {
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.recipient.to_account_info(),
         };
 
-        require!(grant.remaining_balance >= tranche_amount, PulseError::InsufficientVaultFunds);
-
-        let grant_id_bytes = grant_id.to_le_bytes();
-        let seeds = &[
-            b"vault".as_ref(),
-            grant_id_bytes.as_ref(),
-            &[grant.vault_bump],
-        ];
-        let signer_seeds = &[&seeds[..]];
-
-        // Transfer SOL from program vault PDA directly to student recipient
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.recipient.to_account_info(),
-            },
+            transfer_instruction,
             signer_seeds,
         );
-        transfer(cpi_ctx, tranche_amount)?;
 
-        grant.remaining_balance = grant.remaining_balance.checked_sub(tranche_amount).ok_or(PulseError::MathOverflow)?;
-        grant.current_milestone = grant.current_milestone.checked_add(1).ok_or(PulseError::MathOverflow)?;
+        transfer(cpi_ctx, per_milestone_payout)?;
 
-        if grant.current_milestone >= grant.milestone_count {
-            grant.state = GrantState::Completed;
-        } else {
-            grant.state = GrantState::Active;
-        }
-
-        emit!(MilestoneDisbursed {
-            grant_id,
-            milestone_index,
-            amount: tranche_amount,
-            recipient: ctx.accounts.recipient.key(),
+        emit!(MilestoneDisbursedEvent {
+            grant: grant.key(),
+            milestone_index: grant.current_milestone - 1,
+            amount: per_milestone_payout,
+            recipient: grant.recipient,
+            is_grant_completed: grant.is_completed,
         });
 
         Ok(())
     }
 
-    /// Sponsor emergency clawback if the milestone remains disputed or abandoned.
-    pub fn emergency_clawback(
-        ctx: Context<EmergencyClawback>,
-        grant_id: u64,
-    ) -> Result<()> {
-        let grant = &mut ctx.accounts.grant;
-        require!(grant.state == GrantState::Disputed, PulseError::GrantNotDisputed);
-        require!(grant.remaining_balance > 0, PulseError::InsufficientVaultFunds);
+    /// Sponsor claws back remaining funds if deadline passed and deliverables not delivered.
+    pub fn refund_expired_grant(ctx: Context<RefundExpiredGrant>) -> Result<()> {
+        let grant = &mut ctx.accounts.grant_account;
+        let current_slot = Clock::get()?.slot;
 
-        let grant_id_bytes = grant_id.to_le_bytes();
+        require!(current_slot > grant.deadline_slot, UniVibeError::GrantNotExpired);
+        require!(!grant.is_completed, UniVibeError::GrantAlreadyCompleted);
+        require!(!grant.is_canceled, UniVibeError::GrantIsCanceled);
+
+        let remaining_balance = ctx.accounts.vault.to_account_info().lamports();
+        require!(remaining_balance > 0, UniVibeError::NoRemainingFunds);
+
+        let grant_key = grant.key();
         let seeds = &[
-            b"vault".as_ref(),
-            grant_id_bytes.as_ref(),
+            b"univibe_vault",
+            grant_key.as_ref(),
             &[grant.vault_bump],
         ];
         let signer_seeds = &[&seeds[..]];
 
-        let refund_amount = grant.remaining_balance;
+        let transfer_instruction = Transfer {
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.sponsor.to_account_info(),
+        };
 
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.sponsor.to_account_info(),
-            },
+            transfer_instruction,
             signer_seeds,
         );
-        transfer(cpi_ctx, refund_amount)?;
 
-        grant.remaining_balance = 0;
-        grant.state = GrantState::Cancelled;
+        transfer(cpi_ctx, remaining_balance)?;
+        grant.is_canceled = true;
 
-        emit!(GrantCancelled {
-            grant_id,
-            refund_amount,
-            sponsor: ctx.accounts.sponsor.key(),
+        emit!(GrantRefundedEvent {
+            grant: grant.key(),
+            refunded_amount: remaining_balance,
+            sponsor: grant.sponsor,
         });
 
         Ok(())
@@ -204,89 +240,123 @@ pub mod campus_pulse {
 }
 
 // -----------------------------------------------------------------------------
-// ACCOUNT VALIDATION CONTEXTS
+// ACCOUNT VALIDATION STRUCTS
 // -----------------------------------------------------------------------------
 
 #[derive(Accounts)]
-#[instruction(grant_id: u64, title: String, total_budget: u64, milestone_count: u8)]
+#[instruction(title: String, metadata_cid: String)]
 pub struct InitializeGrant<'info> {
     #[account(
         init,
         payer = sponsor,
-        space = Grant::LEN,
-        seeds = [b"grant", grant_id.to_le_bytes().as_ref()],
+        space = 8 + GrantAccount::LEN,
+        seeds = [b"univibe_grant", sponsor.key().as_ref(), title.as_bytes()],
         bump
     )]
-    pub grant: Account<'info, Grant>,
+    pub grant_account: Account<'info, GrantAccount>,
 
-    /// CHECK: Vault PDA derived deterministically to hold lamports safely.
     #[account(
         mut,
-        seeds = [b"vault", grant_id.to_le_bytes().as_ref()],
+        seeds = [b"univibe_vault", grant_account.key().as_ref()],
         bump
     )]
-    pub vault: AccountInfo<'info>,
+    pub vault: SystemAccount<'info>,
 
     #[account(mut)]
     pub sponsor: Signer<'info>,
 
-    /// CHECK: Recipient pubkey verified by grant initializer.
+    /// CHECK: Recipient receiving the grant disbursements
     pub recipient: AccountInfo<'info>,
-
-    /// CHECK: Reviewer authority responsible for attestations.
-    pub reviewer: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(grant_id: u64)]
-pub struct SubmitMilestone<'info> {
+pub struct SubmitDeliverable<'info> {
     #[account(
         mut,
-        seeds = [b"grant", grant_id.to_le_bytes().as_ref()],
-        bump = grant.bump,
-        has_one = recipient @ PulseError::UnauthorizedRecipient
+        has_one = recipient @ UniVibeError::UnauthorizedRecipient
     )]
-    pub grant: Account<'info, Grant>,
+    pub grant_account: Account<'info, GrantAccount>,
 
+    #[account(
+        init,
+        payer = recipient,
+        space = 8 + MilestoneState::LEN,
+        seeds = [
+            b"milestone",
+            grant_account.key().as_ref(),
+            &[grant_account.current_milestone]
+        ],
+        bump
+    )]
+    pub milestone_state: Account<'info, MilestoneState>,
+
+    #[account(mut)]
     pub recipient: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(grant_id: u64)]
 pub struct ReviewMilestone<'info> {
+    pub grant_account: Account<'info, GrantAccount>,
+
     #[account(
         mut,
-        seeds = [b"grant", grant_id.to_le_bytes().as_ref()],
-        bump = grant.bump,
-        has_one = reviewer @ PulseError::UnauthorizedReviewer
+        seeds = [
+            b"milestone",
+            grant_account.key().as_ref(),
+            &[grant_account.current_milestone]
+        ],
+        bump = milestone_state.bump
     )]
-    pub grant: Account<'info, Grant>,
+    pub milestone_state: Account<'info, MilestoneState>,
 
+    #[account(
+        init,
+        payer = reviewer,
+        space = 8 + ReviewRecord::LEN,
+        seeds = [
+            b"review",
+            grant_account.key().as_ref(),
+            &[grant_account.current_milestone],
+            reviewer.key().as_ref()
+        ],
+        bump
+    )]
+    pub review_record: Account<'info, ReviewRecord>,
+
+    #[account(mut)]
     pub reviewer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(grant_id: u64)]
 pub struct DisburseMilestone<'info> {
     #[account(
         mut,
-        seeds = [b"grant", grant_id.to_le_bytes().as_ref()],
-        bump = grant.bump,
-        has_one = recipient @ PulseError::UnauthorizedRecipient
+        has_one = recipient @ UniVibeError::UnauthorizedRecipient,
+        has_one = vault @ UniVibeError::InvalidVault
     )]
-    pub grant: Account<'info, Grant>,
+    pub grant_account: Account<'info, GrantAccount>,
 
-    /// CHECK: Vault PDA verified against seeds.
     #[account(
         mut,
-        seeds = [b"vault", grant_id.to_le_bytes().as_ref()],
-        bump = grant.vault_bump
+        seeds = [
+            b"milestone",
+            grant_account.key().as_ref(),
+            &[grant_account.current_milestone]
+        ],
+        bump = milestone_state.bump
     )]
-    pub vault: AccountInfo<'info>,
+    pub milestone_state: Account<'info, MilestoneState>,
 
-    /// CHECK: Recipient receiving disbursed funds.
+    #[account(mut)]
+    pub vault: SystemAccount<'info>,
+
+    /// CHECK: Validated via has_one on grant_account
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
 
@@ -296,23 +366,16 @@ pub struct DisburseMilestone<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(grant_id: u64)]
-pub struct EmergencyClawback<'info> {
+pub struct RefundExpiredGrant<'info> {
     #[account(
         mut,
-        seeds = [b"grant", grant_id.to_le_bytes().as_ref()],
-        bump = grant.bump,
-        has_one = sponsor @ PulseError::UnauthorizedSponsor
+        has_one = sponsor @ UniVibeError::UnauthorizedSponsor,
+        has_one = vault @ UniVibeError::InvalidVault
     )]
-    pub grant: Account<'info, Grant>,
+    pub grant_account: Account<'info, GrantAccount>,
 
-    /// CHECK: Vault PDA verified against seeds.
-    #[account(
-        mut,
-        seeds = [b"vault", grant_id.to_le_bytes().as_ref()],
-        bump = grant.vault_bump
-    )]
-    pub vault: AccountInfo<'info>,
+    #[account(mut)]
+    pub vault: SystemAccount<'info>,
 
     #[account(mut)]
     pub sponsor: Signer<'info>,
@@ -321,122 +384,140 @@ pub struct EmergencyClawback<'info> {
 }
 
 // -----------------------------------------------------------------------------
-// STATE ENUMS & ACCOUNTS
+// DATA STATES
 // -----------------------------------------------------------------------------
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
-pub enum GrantState {
-    Funded,
-    Active,
-    Submitted,
-    Approved,
-    Disputed,
-    Completed,
-    Cancelled,
+#[account]
+pub struct GrantAccount {
+    pub sponsor: Pubkey,
+    pub recipient: Pubkey,
+    pub vault: Pubkey,
+    pub title: String,
+    pub metadata_cid: String,
+    pub total_funding_amount: u64,
+    pub amount_disbursed: u64,
+    pub total_milestones: u8,
+    pub current_milestone: u8,
+    pub approval_threshold: u8,
+    pub deadline_slot: u64,
+    pub is_completed: bool,
+    pub is_canceled: bool,
+    pub bump: u8,
+    pub vault_bump: u8,
+}
+
+impl GrantAccount {
+    pub const LEN: usize = 32 + 32 + 32 + (4 + MAX_TITLE_LEN) + (4 + MAX_METADATA_LEN) + 8 + 8 + 1 + 1 + 1 + 8 + 1 + 1 + 1 + 1;
 }
 
 #[account]
-pub struct Grant {
-    pub grant_id: u64,              // 8
-    pub sponsor: Pubkey,            // 32
-    pub recipient: Pubkey,          // 32
-    pub reviewer: Pubkey,           // 32
-    pub total_budget: u64,          // 8
-    pub remaining_balance: u64,     // 8
-    pub current_milestone: u8,      // 1
-    pub milestone_count: u8,        // 1
-    pub state: GrantState,          // 1
-    pub bump: u8,                   // 1
-    pub vault_bump: u8,             // 1
-    pub title: String,              // 4 + 64
+pub struct MilestoneState {
+    pub grant: Pubkey,
+    pub milestone_index: u8,
+    pub deliverable_cid: String,
+    pub approvals_count: u8,
+    pub is_disbursed: bool,
+    pub bump: u8,
 }
 
-impl Grant {
-    pub const LEN: usize = 8 + 8 + 32 + 32 + 32 + 8 + 8 + 1 + 1 + 1 + 1 + 1 + (4 + 64);
+impl MilestoneState {
+    pub const LEN: usize = 32 + 1 + (4 + MAX_METADATA_LEN) + 1 + 1 + 1;
+}
+
+#[account]
+pub struct ReviewRecord {
+    pub grant: Pubkey,
+    pub reviewer: Pubkey,
+    pub milestone_index: u8,
+    pub approved: bool,
+    pub reviewed_at: i64,
+}
+
+impl ReviewRecord {
+    pub const LEN: usize = 32 + 32 + 1 + 1 + 8;
 }
 
 // -----------------------------------------------------------------------------
-// EVENTS
+// EVENTS & ERRORS
 // -----------------------------------------------------------------------------
 
 #[event]
-pub mod events {
-    use super::*;
-
-    #[derive(AnchorSerialize, AnchorDeserialize)]
-    pub struct GrantInitialized {
-        pub grant_id: u64,
-        pub sponsor: Pubkey,
-        pub recipient: Pubkey,
-        pub total_budget: u64,
-        pub milestone_count: u8,
-    }
-
-    #[derive(AnchorSerialize, AnchorDeserialize)]
-    pub struct MilestoneSubmitted {
-        pub grant_id: u64,
-        pub milestone_index: u8,
-        pub proof_uri: String,
-    }
-
-    #[derive(AnchorSerialize, AnchorDeserialize)]
-    pub struct MilestoneReviewed {
-        pub grant_id: u64,
-        pub milestone_index: u8,
-        pub approved: bool,
-        pub reviewer: Pubkey,
-    }
-
-    #[derive(AnchorSerialize, AnchorDeserialize)]
-    pub struct MilestoneDisbursed {
-        pub grant_id: u64,
-        pub milestone_index: u8,
-        pub amount: u64,
-        pub recipient: Pubkey,
-    }
-
-    #[derive(AnchorSerialize, AnchorDeserialize)]
-    pub struct GrantCancelled {
-        pub grant_id: u64,
-        pub refund_amount: u64,
-        pub sponsor: Pubkey,
-    }
+pub struct GrantCreatedEvent {
+    pub grant: Pubkey,
+    pub sponsor: Pubkey,
+    pub recipient: Pubkey,
+    pub total_amount: u64,
+    pub total_milestones: u8,
 }
 
-pub use events::*;
+#[event]
+pub struct DeliverableSubmittedEvent {
+    pub grant: Pubkey,
+    pub milestone_index: u8,
+    pub deliverable_cid: String,
+}
 
-// -----------------------------------------------------------------------------
-// ERROR CODES
-// -----------------------------------------------------------------------------
+#[event]
+pub struct MilestoneReviewedEvent {
+    pub grant: Pubkey,
+    pub milestone_index: u8,
+    pub reviewer: Pubkey,
+    pub approved: bool,
+    pub current_approvals: u8,
+}
+
+#[event]
+pub struct MilestoneDisbursedEvent {
+    pub grant: Pubkey,
+    pub milestone_index: u8,
+    pub amount: u64,
+    pub recipient: Pubkey,
+    pub is_grant_completed: bool,
+}
+
+#[event]
+pub struct GrantRefundedEvent {
+    pub grant: Pubkey,
+    pub refunded_amount: u64,
+    pub sponsor: Pubkey,
+}
 
 #[error_code]
-pub enum PulseError {
-    #[msg("Title must be between 1 and 64 characters.")]
-    InvalidTitleLength,
-    #[msg("Milestone count must be between 1 and 10.")]
+pub mod UniVibeError {
+    #[msg("Title string exceeds maximum length.")]
+    TitleTooLong,
+    #[msg("Metadata CID string exceeds maximum length.")]
+    MetadataTooLong,
+    #[msg("Milestone count must be greater than zero.")]
     InvalidMilestoneCount,
-    #[msg("Total budget must be greater than zero.")]
-    InvalidBudget,
-    #[msg("Grant is not in a valid state for this action.")]
-    InvalidGrantState,
-    #[msg("Milestone is out of chronological sequence.")]
-    MilestoneSequenceError,
-    #[msg("Proof URI exceeds limit or is empty.")]
-    InvalidProofUri,
-    #[msg("Milestone is not currently pending review.")]
-    NotUnderReview,
-    #[msg("Milestone must be approved prior to disbursement.")]
-    MilestoneNotApproved,
-    #[msg("Vault possesses insufficient lamport liquidity.")]
-    InsufficientVaultFunds,
-    #[msg("Arithmetic overflow occurred.")]
-    MathOverflow,
-    #[msg("Grant must be disputed prior to emergency clawback.")]
-    GrantNotDisputed,
-    #[msg("Caller is not the authorized recipient.")]
+    #[msg("Approval threshold must be greater than zero.")]
+    InvalidApprovalThreshold,
+    #[msg("Funding amount must be greater than zero.")]
+    ZeroFundingAmount,
+    #[msg("Deadline must be greater than current slot.")]
+    InvalidDeadline,
+    #[msg("Grant is already completed.")]
+    GrantAlreadyCompleted,
+    #[msg("Grant was canceled.")]
+    GrantIsCanceled,
+    #[msg("All milestones have already been completed.")]
+    AllMilestonesCompleted,
+    #[msg("Deadline for this grant milestone has passed.")]
+    DeadlineExceeded,
+    #[msg("Signer is not authorized recipient.")]
     UnauthorizedRecipient,
-    #[msg("Caller is not the designated reviewer.")]
-    UnauthorizedReviewer,
-    #[msg("Caller is not the authorized sponsor.")]
+    #[msg("Signer is not authorized sponsor.")]
     UnauthorizedSponsor,
+    #[msg("Vault address does not match grant configuration.")]
+    InvalidVault,
+    #[msg("Milestone payout already disbursed.")]
+    MilestoneAlreadyDisbursed,
+    #[msg("Insufficient approvals to disburse milestone.")]
+    InsufficientApprovals,
+    #[msg("Grant has not yet reached expiration deadline.")]
+    GrantNotExpired,
+    #[msg("No remaining funds available in vault.")]
+    NoRemainingFunds,
+    #[msg("Arithmetic overflow detected.")]
+    MathOverflow,
 }

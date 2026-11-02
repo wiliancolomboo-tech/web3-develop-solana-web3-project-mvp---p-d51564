@@ -1,0 +1,1 @@
+solana account <GRANT_VAULT_PDA_ADDRESS> --url devnet

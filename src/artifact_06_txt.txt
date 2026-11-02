@@ -1,0 +1,15 @@
+### 5.1 QA Execution Summary
+| Test Case Index | Function Tested | Invariants Checked | Status |
+| :--- | :--- | :--- | :--- |
+| **01** | `initialize_campaign` | Exact deposit escrow calculation & PDA seeds isolation | ✅ PASS |
+| **02** | `submit_milestone` | Beneficiary validation, String length bounding (<=64) | ✅ PASS |
+| **03** | `approve_milestone (partial)` | Vote recorded, zero lamports disburse without quorum | ✅ PASS |
+| **04** | `approve_milestone (quorum)` | Exact 1:1 lamport release to student, state increment | ✅ PASS |
+| **05** | Double-vote prevention | Checks vector uniqueness & prevents double-spend | ✅ PASS |
+| **06** | Rogue Signer checks | Verifies signer constraints against stored beneficiary | ✅ PASS |
+
+---
+
+# 6. Sponsor Handover & Turnkey Operations
+
+### 6.1 Deployment Commands (Localnet / Devnet)

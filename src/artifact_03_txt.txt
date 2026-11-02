@@ -1,0 +1,11 @@
++----------------------------------------------------------------------------------------------------+
+|                                  INTEGRATION TOPOLOGY MATRIX                                       |
++----------------------+--------------------------+-----------------------+--------------------------+
+| Integration Target   | Layer                    | Protocol / Transport  | Critical Functionality   |
++----------------------+--------------------------+-----------------------+--------------------------+
+| Solana Runtime       | Layer 1 Blockchain       | JSON-RPC & WSS Logs   | State PDAs, Lamport Vault|
+| UniVibe Relayer      | Middleware Automation    | Node.js / TypeScript  | Log parsing, Automation  |
+| Resend Enterprise    | Email Communications     | HTTPS REST API v1     | Verified Award Letters   |
+| Discord / Slack      | Community Notifications  | HTTPS Webhooks        | Real-Time Transparency   |
+| IPFS / Arweave       | Metadata Storage         | Decentralized Storage | Proposal Specs & Proofs  |
++----------------------+--------------------------+-----------------------+--------------------------+

@@ -1,0 +1,7 @@
+SOLANA_RPC_URL=https://api.devnet.solana.com
+PROGRAM_ID=UniVibe1111111111111111111111111111111111111
+DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+RESEND_API_KEY=re_1234567890abcdef
+RESEND_FROM_EMAIL=grants@univibe.io
+ADMIN_NOTIFICATION_EMAIL=kubg.vibeathon@korea.ac.kr
+PORT=8080

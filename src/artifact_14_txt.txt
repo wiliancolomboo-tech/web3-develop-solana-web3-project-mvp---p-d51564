@@ -1,0 +1,5 @@
+Under the hood of UniVibe:
+🔐 PDA-Secured Vaults: Project funds are locked in deterministic Solana smart contract vaults.
+👥 Mentor Multi-Party Quorum: Faculty & guild leads sign off on GitHub deliverables on-chain.
+🏅 Soulbound Proof-of-Contribution: Verifiable CV credentials minted instantly upon payout.
+⚡ Powered by Solana’s ~400ms finality + @resend email & Discord event bridges!

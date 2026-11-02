@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  indexer:
+    build:
+      context: ./services/indexer
+      dockerfile: Dockerfile
+    container_name: unistream_indexer
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_WS_URL=wss://api.devnet.solana.com
+      - PROGRAM_ID=${PROGRAM_ID:-UniStrmV1be111111111111111111111111111111111}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - ALERT_EMAIL_RECIPIENT=hackathon@korea.ac.kr
+      - FROM_EMAIL=grants@unistream.io
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3

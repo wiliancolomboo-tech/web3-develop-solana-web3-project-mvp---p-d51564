@@ -1,0 +1,5 @@
+SOLANA_RPC_URL="https://api.devnet.solana.com"
+PROGRAM_ID="UniVibeqz4dTXrP6kL3XoZqYQe9sQxW8M6xJ7P5C1111"
+RESEND_API_KEY="re_123456789_enterpriseKey"
+DISCORD_WEBHOOK_URL="https://api.example.com/webhooks/alerts/placeholder"
+PORT=8080

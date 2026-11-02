@@ -1,0 +1,11 @@
++-----------------------------------+--------------------+----------------------------+----------+
+| Test Case Identifier              | Category           | Asserted Condition         | Status   |
++-----------------------------------+--------------------+----------------------------+----------+
+| POOL-INIT-01                      | State Setup        | Correct PDA ownership & lam| PASS     |
+| PROP-CEILING-02                   | Validation Boundary| Disallow amount > ceiling  | PASS     |
+| PROP-SUBMIT-03                    | State Setup        | Status=Voting, CID recorded| PASS     |
+| VOTE-QUADRATIC-04                 | Math & Logic       | Weight equals sqrt(tokens) | PASS     |
+| AUTH-MULTISIG-05                  | Security / RBAC    | Reject non-reviewer signer | PASS     |
+| EXEC-PAYOUT-06                    | Settlement         | Exact lamports transferred | PASS     |
+| REPLAY-PREVENT-07                 | Security / Replay  | Reject double disbursement | PASS     |
++-----------------------------------+--------------------+----------------------------+----------+

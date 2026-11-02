@@ -1,0 +1,7 @@
+{
+  "status": "healthy",
+  "protocol": "VibeBlink",
+  "network": "solana-devnet",
+  "activeSubscriptions": 1,
+  "uptimeSeconds": 86400
+}

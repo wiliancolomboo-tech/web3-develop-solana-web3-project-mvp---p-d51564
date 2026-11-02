@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  campus-vibe-sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campus_vibe_sentinel
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - PROGRAM_ID=V1beZ4P7P1f7XbEwS1aUu8q9jCcmQ83P1xLkF6dNvNm
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - NOTIFY_EMAIL=${NOTIFY_EMAIL}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  scholarstream-telemetry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scholarstream-worker
+    restart: always
+    environment:
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - PROGRAM_ID=Sch1rStream111111111111111111111111111111111
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=grants@scholarstream.io
+      - FACULTY_EMAIL=${FACULTY_EMAIL:-grants@kubg.ac.kr}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"

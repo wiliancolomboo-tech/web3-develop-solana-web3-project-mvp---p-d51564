@@ -1,0 +1,16 @@
+campus-vibe/
+├── Anchor.toml
+├── Cargo.toml
+├── Dockerfile
+├── docker-compose.yml
+├── package.json
+├── tsconfig.json
+├── programs/
+│   └── campus_vibe/
+│       ├── Cargo.toml
+│       └── src/
+│           └── lib.rs
+├── client/
+│   └── worker.ts
+└── tests/
+    └── campus_vibe.ts

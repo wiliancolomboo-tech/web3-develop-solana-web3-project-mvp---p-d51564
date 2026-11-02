@@ -1,0 +1,5 @@
+PORT=8080
+SOLANA_RPC_URL=https://api.devnet.solana.com
+PROGRAM_ID=V1BEq6mXQ7zK3B7YhJc4g2rJ8K9pLmNw5qRxTuVwXYZ
+DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
+ADMIN_KEYPAIR_PATH=/app/keys/sponsor-keypair.json

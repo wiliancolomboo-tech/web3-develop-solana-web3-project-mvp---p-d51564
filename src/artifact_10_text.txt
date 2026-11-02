@@ -1,0 +1,6 @@
+How UniVibe changes university builder ecosystems:
+🔒 Non-custodial Anchor PDA vaults lock sponsor bounties safely.
+⚡ Sub-second payout release verified by campus faculty/reviewers.
+📧 Real-time notifications dispatched via @resend & Discord webhooks.
+
+100% test coverage, sub-cent fees. 🏗️

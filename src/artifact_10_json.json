@@ -1,0 +1,6 @@
+{
+     "status": "healthy",
+     "network": "solana-devnet",
+     "rpc_latency_ms": 42,
+     "uptime_seconds": 104230
+   }

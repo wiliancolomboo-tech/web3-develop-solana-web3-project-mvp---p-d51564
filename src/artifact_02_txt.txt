@@ -1,0 +1,16 @@
++-------------------------------------------------------------------------+
+|                        UniVibe Production Cluster                       |
+|                                                                         |
+|  +--------------------+     gRPC / WebSocket    +--------------------+  |
+|  | Solana RPC Cluster | <=====================> | UniVibe Worker     |  |
+|  | (Helius / Triton)  |  Program Logs & Events  | Node.js / TS       |  |
+|  +--------------------+                         +---------+----------+  |
+|           ^                                               |             |
+|           | Anchor Instruction Execution                  | Webhook     |
+|           v                                               v             |
+|  +--------------------+                         +--------------------+  |
+|  | UniVibe Core PDA   |                         | Enterprise Sinks:  |  |
+|  | - Grant State      |                         | - Discord Bot API  |  |
+|  | - Escrow Vault     |                         | - Resend Mailer    |  |
+|  +--------------------+                         +--------------------+  |
++-------------------------------------------------------------------------+

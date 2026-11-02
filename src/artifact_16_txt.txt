@@ -1,0 +1,11 @@
+services/indexer/
+├── package.json
+├── tsconfig.json
+├── .env.example
+└── src/
+    ├── config.ts
+    ├── index.ts
+    ├── notify/
+    │   ├── discord.ts
+    │   └── resend.ts
+    └── types.ts
