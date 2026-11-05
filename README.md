@@ -515,7 +515,7 @@ const config: AppConfig = {
   rpcUrl: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
   wsUrl: process.env.SOLANA_WS_URL || "wss://api.devnet.solana.com",
   programId: new PublicKey(process.env.PROGRAM_ID || "UniVibe1111111111111111111111111111111111111"),
-  resendApiKey: process.env.RESEND_API_KEY || "re_test_dummy_key",
+  resendApiKey: process.env.RESEND_API_KEY || "re_test_000000000000000000000000",
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || "",
   notificationEmail: process.env.CAMPUS_ADMIN_EMAIL || "kubg.solana@korea.ac.kr",
 };
@@ -558,7 +558,7 @@ async function notifyDiscord(title: string, description: string, color: number =
  * Enterprise Dispatcher: Sends Transactional Email via Resend
  */
 async function sendEmailReceipt(recipient: string, bountyId: string, amountSol: string, txSig: string) {
-  if (!config.resendApiKey || config.resendApiKey === "re_test_dummy_key") {
+  if (!config.resendApiKey || config.resendApiKey === "re_test_000000000000000000000000") {
     console.log(`[STUB EMAIL] To: ${recipient} | Bounty: ${bountyId} | Amount: ${amountSol} SOL`);
     return;
   }

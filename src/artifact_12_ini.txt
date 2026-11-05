@@ -5,5 +5,5 @@ PROGRAM_ID=V1bE9fK8UqB4p2wV7m1NxL3yZ6aE5cT8rP0sD9uF2hQ
 
 # Integration Relayers
 DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
-RESEND_API_KEY=re_123456789_abcdefg
+RESEND_API_KEY="mock_development_token_00000000000000"
 NOTIFICATION_EMAIL=korea.university.blockchain@example.com

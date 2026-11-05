@@ -12,7 +12,7 @@ services:
       - PROGRAM_ID=VibeStr11111111111111111111111111111111111
       - SLACK_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
       - DISCORD_WEBHOOK_URL=https://api.example.com/webhooks/alerts/placeholder
-      - RESEND_API_KEY=re_123456789_abcdef
+      - RESEND_API_KEY="mock_development_token_00000000000000"
       - ALERT_EMAIL=grants@kubg-vibeathon.edu
     logging:
       driver: "json-file"
